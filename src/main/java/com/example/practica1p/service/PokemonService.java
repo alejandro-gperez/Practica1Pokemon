@@ -1,5 +1,6 @@
 package com.example.practica1p.service;
 
+import java.time.OffsetDateTime;
 import java.util.StringJoiner;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 import com.example.practica1p.dto.PokemonResponseDTO;
+import com.example.practica1p.entity.ConsultaPokemon;
 import com.example.practica1p.repository.ConsultaPokemonRepository;
 
 import tools.jackson.databind.JsonNode;
@@ -25,13 +27,15 @@ public class PokemonService {
         this.consultaPokemonRepository = consultaPokemonRepository;
     }
 
-    RestClient restClient = RestClient.create("https://pokeapi.co/api/v2/");
+    private static final String POKEAPI_BASE_URL = "https://pokeapi.co/api/v2/pokemon/";
+
+    RestClient restClient = RestClient.create(POKEAPI_BASE_URL);
 
     @GetMapping("/find")
     public PokemonResponseDTO getPokemonInfo(@RequestParam String name) {
 
         String pokemon = restClient.get()
-        .uri("pokemon/{name}", name)
+        .uri("{name}", name)
         .retrieve()
         .body(String.class);
 
@@ -61,9 +65,29 @@ public class PokemonService {
        respuesta.setPeso(peso);
        respuesta.setRutaImagen(rutaImagen);
        respuesta.setTipos(t.toString());
-    
+
+       // Guardar respuesta completa
+       
+       ConsultaPokemon consultaPokemon = new ConsultaPokemon();
+
+       consultaPokemon.setFechaConsulta(OffsetDateTime.now());
+       consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
+       consultaPokemon.setRespuestaAPI(pokemon);
+       consultaPokemon.setIdPokemon(id);
+       consultaPokemon.setNombrePokemon(nombre);
+       consultaPokemon.setAltura(altura);
+       consultaPokemon.setPeso(peso);
+       consultaPokemon.setTipos(t.toString());
+       consultaPokemon.setRutaImagen(rutaImagen);
+
+       consultaPokemonRepository.save(consultaPokemon);
+
         return respuesta;
     }
+
+    
+    
+    
 
     
     
