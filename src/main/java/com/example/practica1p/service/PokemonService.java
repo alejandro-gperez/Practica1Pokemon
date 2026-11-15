@@ -3,14 +3,16 @@ package com.example.practica1p.service;
 import java.time.OffsetDateTime;
 import java.util.StringJoiner;
 
+import tools.jackson.core.JacksonException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import com.example.practica1p.dto.PokemonResponseDTO;
@@ -20,13 +22,14 @@ import com.example.practica1p.repository.ConsultaPokemonRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-
-@RestController 
+@RestController
 @RequestMapping("/pokemon")
 public class PokemonService {
 
+    ObjectMapper objectMapper = new ObjectMapper();
+
     ConsultaPokemonRepository consultaPokemonRepository;
-    
+
     public PokemonService(ConsultaPokemonRepository consultaPokemonRepository) {
         this.consultaPokemonRepository = consultaPokemonRepository;
     }
@@ -38,93 +41,127 @@ public class PokemonService {
     @GetMapping("/find")
     public ResponseEntity<?> getPokemonInfo(@RequestParam String name) {
 
+        if (name.isBlank()) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body("Debes colocar el nombre de un Pokémon!");
+        }
+
         String pokemon;
 
         try {
 
-        pokemon = restClient.get()
-        .uri("{name}", name)
-        .retrieve()
-        .body(String.class);
-            
+            pokemon = restClient.get()
+                    .uri("{name}", name)
+                    .retrieve()
+                    .body(String.class);
+
         } catch (HttpClientErrorException.NotFound e) {
 
-           String respuestaError = e.getResponseBodyAsString();
+            String respuestaError = e.getResponseBodyAsString();
 
-           ConsultaPokemon consultaPokemon = new ConsultaPokemon();
+            ConsultaPokemon consultaPokemon = new ConsultaPokemon();
 
-           consultaPokemon.setFechaConsulta(OffsetDateTime.now());
-           consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
-           consultaPokemon.setRespuestaAPI(respuestaError);
+            consultaPokemon.setFechaConsulta(OffsetDateTime.now());
+            consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
+            consultaPokemon.setRespuestaAPI(respuestaError);
 
-           consultaPokemonRepository.save(consultaPokemon);
+            consultaPokemonRepository.save(consultaPokemon);
 
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body("Pokémon no encontrado :(");
 
+        } catch (HttpServerErrorException e) {
 
-           return ResponseEntity
-           .status(HttpStatus.NOT_FOUND)
-           .body("Pokemon no encontrado :(");
+            String respuestaError = e.getResponseBodyAsString();
+            String conversion = respuestaError;
 
-            
+            if (respuestaError.isEmpty()) {
+                conversion = null;
+            } else {
 
+                try {
 
+                    objectMapper.readTree(respuestaError);
+
+                } catch (JacksonException ex) {
+
+                    conversion = objectMapper.writeValueAsString(respuestaError);
+
+                }
+
+            }
+
+            ConsultaPokemon consultaPokemon = new ConsultaPokemon();
+
+            consultaPokemon.setFechaConsulta(OffsetDateTime.now());
+            consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
+            consultaPokemon.setRespuestaAPI(conversion);
+
+            consultaPokemonRepository.save(consultaPokemon);
+
+            return ResponseEntity
+                    .status(HttpStatus.BAD_GATEWAY)
+                    .body("El servicio externo que usamos ha fallado :(");
+
+        } catch (ResourceAccessException e) {
+
+            ConsultaPokemon consultaPokemon = new ConsultaPokemon();
+
+            consultaPokemon.setFechaConsulta(OffsetDateTime.now());
+            consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
+
+            consultaPokemonRepository.save(consultaPokemon);
+
+            return ResponseEntity
+                    .status(HttpStatus.BAD_GATEWAY)
+                    .body("No fue posible establecer conexión con el servidor D:");
 
         }
 
-        
-
-        ObjectMapper objectMapper = new ObjectMapper();
-
         JsonNode respuestaCompleta = objectMapper.readTree(pokemon);
 
-       Long id = respuestaCompleta.get("id").asLong();
-       String nombre = respuestaCompleta.get("name").asString();
-       Integer altura = respuestaCompleta.get("height").asInt();
-       Integer peso = respuestaCompleta.get("weight").asInt();
-       String rutaImagen = respuestaCompleta.get("sprites").get("front_default").asString();
+        Long id = respuestaCompleta.get("id").asLong();
+        String nombre = respuestaCompleta.get("name").asString();
+        Integer altura = respuestaCompleta.get("height").asInt();
+        Integer peso = respuestaCompleta.get("weight").asInt();
+        String rutaImagen = respuestaCompleta.get("sprites").get("front_default").asString();
 
-       //Tipos
-       JsonNode tipos = respuestaCompleta.get("types");
-       StringJoiner t = new StringJoiner(",");
+        // Tipos
+        JsonNode tipos = respuestaCompleta.get("types");
+        StringJoiner t = new StringJoiner(",");
 
-       for (JsonNode p : tipos) {
-        t.add(p.get("type").get("name").asString());
-       }
+        for (JsonNode p : tipos) {
+            t.add(p.get("type").get("name").asString());
+        }
 
-       PokemonResponseDTO respuesta = new PokemonResponseDTO();
+        PokemonResponseDTO respuesta = new PokemonResponseDTO();
 
-       respuesta.setIdPokemon(id);
-       respuesta.setNombrePokemon(nombre);
-       respuesta.setAltura(altura);
-       respuesta.setPeso(peso);
-       respuesta.setRutaImagen(rutaImagen);
-       respuesta.setTipos(t.toString());
+        respuesta.setIdPokemon(id);
+        respuesta.setNombrePokemon(nombre);
+        respuesta.setAltura(altura);
+        respuesta.setPeso(peso);
+        respuesta.setRutaImagen(rutaImagen);
+        respuesta.setTipos(t.toString());
 
-       // Guardar respuesta completa
-       
-       ConsultaPokemon consultaPokemon = new ConsultaPokemon();
+        // Guardar respuesta completa
 
-       consultaPokemon.setFechaConsulta(OffsetDateTime.now());
-       consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
-       consultaPokemon.setRespuestaAPI(pokemon);
-       consultaPokemon.setIdPokemon(id);
-       consultaPokemon.setNombrePokemon(nombre);
-       consultaPokemon.setAltura(altura);
-       consultaPokemon.setPeso(peso);
-       consultaPokemon.setTipos(t.toString());
-       consultaPokemon.setRutaImagen(rutaImagen);
+        ConsultaPokemon consultaPokemon = new ConsultaPokemon();
 
-       consultaPokemonRepository.save(consultaPokemon);
+        consultaPokemon.setFechaConsulta(OffsetDateTime.now());
+        consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
+        consultaPokemon.setRespuestaAPI(pokemon);
+        consultaPokemon.setIdPokemon(id);
+        consultaPokemon.setNombrePokemon(nombre);
+        consultaPokemon.setAltura(altura);
+        consultaPokemon.setPeso(peso);
+        consultaPokemon.setTipos(t.toString());
+        consultaPokemon.setRutaImagen(rutaImagen);
 
-        return ResponseEntity.ok(respuesta);    
+        consultaPokemonRepository.save(consultaPokemon);
+
+        return ResponseEntity.ok(respuesta);
     }
-
-    
-    
-    
-
-    
-    
-    
 
 }
