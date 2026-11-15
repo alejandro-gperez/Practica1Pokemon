@@ -3,10 +3,14 @@ package com.example.practica1p.service;
 import java.time.OffsetDateTime;
 import java.util.StringJoiner;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import com.example.practica1p.dto.PokemonResponseDTO;
@@ -32,12 +36,42 @@ public class PokemonService {
     RestClient restClient = RestClient.create(POKEAPI_BASE_URL);
 
     @GetMapping("/find")
-    public PokemonResponseDTO getPokemonInfo(@RequestParam String name) {
+    public ResponseEntity<?> getPokemonInfo(@RequestParam String name) {
 
-        String pokemon = restClient.get()
+        String pokemon;
+
+        try {
+
+        pokemon = restClient.get()
         .uri("{name}", name)
         .retrieve()
         .body(String.class);
+            
+        } catch (HttpClientErrorException.NotFound e) {
+
+           String respuestaError = e.getResponseBodyAsString();
+
+           ConsultaPokemon consultaPokemon = new ConsultaPokemon();
+
+           consultaPokemon.setFechaConsulta(OffsetDateTime.now());
+           consultaPokemon.setUrlConsultada(POKEAPI_BASE_URL + name);
+           consultaPokemon.setRespuestaAPI(respuestaError);
+
+           consultaPokemonRepository.save(consultaPokemon);
+
+
+
+           return ResponseEntity
+           .status(HttpStatus.NOT_FOUND)
+           .body("Pokemon no encontrado :(");
+
+            
+
+
+
+        }
+
+        
 
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -82,7 +116,7 @@ public class PokemonService {
 
        consultaPokemonRepository.save(consultaPokemon);
 
-        return respuesta;
+        return ResponseEntity.ok(respuesta);    
     }
 
     
