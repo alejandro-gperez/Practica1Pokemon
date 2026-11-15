@@ -1,32 +1,33 @@
 package com.example.practica1p.dto;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class PokemonResponseDTO implements Serializable {
 
     private static final long serialVersionUID = -1933811219L;
 
-    private Long idPokemon;
-    private String nombrePokemon;
+    private Long id;
+    private String nombre;
     private Integer altura;
     private Integer peso;
-    private String tipos;
-    private String rutaImagen;
+    private List<String> tipos;
+    private String imagen;
 
-    public Long getIdPokemon() {
-        return this.idPokemon;
+    public Long getId() {
+        return this.id;
     }
 
-    public void setIdPokemon(Long idPokemon) {
-        this.idPokemon = idPokemon;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public String getNombrePokemon() {
-        return this.nombrePokemon;
+    public String getNombre() {
+        return this.nombre;
     }
 
-    public void setNombrePokemon(String nombrePokemon) {
-        this.nombrePokemon = nombrePokemon;
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
     }
 
     public Integer getAltura() {
@@ -45,20 +46,20 @@ public class PokemonResponseDTO implements Serializable {
         this.peso = peso;
     }
 
-    public String getTipos() {
+    public List<String> getTipos() {
         return this.tipos;
     }
 
-    public void setTipos(String tipos) {
+    public void setTipos(List<String> tipos) {
         this.tipos = tipos;
     }
 
-    public String getRutaImagen() {
-        return this.rutaImagen;
+    public String getImagen() {
+        return this.imagen;
     }
 
-    public void setRutaImagen(String rutaImagen) {
-        this.rutaImagen = rutaImagen;
+    public void setImagen(String imagen) {
+        this.imagen = imagen;
     }
     
 
