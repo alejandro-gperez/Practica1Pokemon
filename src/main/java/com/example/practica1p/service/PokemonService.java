@@ -56,7 +56,7 @@ public class PokemonService {
         try {
 
             pokemon = restClient.get()
-                    .uri("{name}, name")
+                    .uri("{name}", name)
                     .retrieve()
                     .body(String.class);
 
